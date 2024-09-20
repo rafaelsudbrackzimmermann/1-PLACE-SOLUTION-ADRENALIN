@@ -115,7 +115,7 @@ def update_and_plot_energy_data(cleaned_df, filtered_df, original_df):
     # Plot results for filtered data
     plot_energy_data(cleaned_df.loc[filtered_df.index], ['base_value', 'predict2', 'trend', 'week_median',
                                    'week_upper_quantile', 'week_lower_quantile', 'median_height', 'median_base'], 
-                     title=f'adjust_base_and_height median_height: {cleaned_df["median_height"].iloc[0]} median_base: {cleaned_df["median_base"].iloc[0]}')
+                     title=f'Reference Week: Max:{round(cleaned_df["median_height"].iloc[0])} Base: {round(cleaned_df["median_base"].iloc[0])}')
 
     # Plot results for the whole dataset
     plot_energy_data(cleaned_df, ['kw_total', 'predict2', 'trend', 'week_median',

@@ -14,12 +14,10 @@ parameters_dict = {
                 'stl_seasonal': 3,
                 'stl_low_pass': -1,
                 'stl_robust': False,
-                'week_plug_selection':[0.05, 0.99, #week median
-                                       0.08, 0.3, # selecionar 25% dos dados
+                'week_plug_selection':[0.05, 0.99, 
+                                       0.08, 0.3, 
                                        0.05, 0.99],
-                'seasonal_trend_power' : [0.1, # força ajuste tendencia 
-                                              'base_min'], # tipo do calculda base da tendencia 
-
+                'seasonal_trend_power' : [0.1, 'base_min'],
             },
             'clean_data_parameters':{
                 'country': 'Noruega',

@@ -24,7 +24,7 @@ else:
 for real_id in parameters_dict.keys():
     print(f'Processing {real_id} -----------------------------------------------------')
 
-    if 'L09' not in real_id:
+    if 'L14.B04_1H' not in real_id:
         continue
 
     # If preprocessing has already been done, no need to redo it

@@ -47,7 +47,7 @@ def print_t(df, num_rows=5, view_type=0, max_columns=10):
 
 # Plots multiple time series of energy data.
 list_of_plots = []
-def plot_energy_data(data, columns, title="", width=450, height=350, show_plot=False):
+def plot_energy_data(data, columns, title="", width=450, height=350, show_plot=False, plot_type = 'line'):
     """
     Plots multiple time series of energy data.
 
@@ -75,7 +75,13 @@ def plot_energy_data(data, columns, title="", width=450, height=350, show_plot=F
                 alpha = 0.7  # Slightly less opaque for temperature-dependent kW
 
             # Plot line
-            p.line(data['timestamp'], data[column], legend_label=column, color=colors[index], line_width=line_width, alpha=alpha)
+            # p.line(data['timestamp'], data[column], legend_label=column, color=colors[index], line_width=line_width, alpha=alpha)
+            if plot_type == 'line':
+                # Plot line
+                p.line(data.index, data[column], legend_label=column, color=colors[index], line_width=line_width, alpha=alpha)
+            elif plot_type == 'scatter':
+                # Plot scatter
+                p.scatter(data.index, data[column], legend_label=column, color=colors[index], size=2, alpha=alpha)
 
     # Customize legend and axis formatting
     p.legend.location = "top_left"
@@ -160,7 +166,6 @@ def aggregate_data(train_data_path,
 
     data_energy = data_energy.fillna(0).reset_index(drop=True)
     data_energy['kw_total'] = data_energy['main_meter(kW)'] + data_energy['PV_battery_system(kW)']
-    data_energy['kw_total_045'] = 0.45 * data_energy['kw_total']
     print_t(data_energy)    
 
     # load the weather data
