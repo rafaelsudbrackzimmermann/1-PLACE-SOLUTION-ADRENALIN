@@ -7,214 +7,214 @@ from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 from bokeh.plotting import figure, show
 
+import warnings
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+from bokeh.util.warnings import BokehDeprecationWarning
+warnings.filterwarnings("ignore", category=BokehDeprecationWarning)
 
-def faz_markov(df_, n_components=2):
-    np.random.seed(42) 
-    # Suponha que você tenha um vetor de leituras de energia, onde cada leitura é agregada
-    data = np.array(df_['kw_total']).reshape(-1, 1)  # Dados de consumo agregados
-    print('data shape' ,data.shape)
+# model 1 - Searching for multiplier values using the percentiles of energy consumption highly correlated with air temperature
+def run_markov(df_, n_components=2):
+    np.random.seed(42)
 
-    # Definindo um HMM
-    # O número de componentes corresponde ao número de estados de potência que você espera
+    energy_data = np.array(df_['kw_total']).reshape(-1, 1)
+    # print('data shape', energy_data.shape)
+
+    # Defining an HMM
+    # The number of components corresponds to the number of power states you expect
     model = hmm.GaussianHMM(n_components=n_components, covariance_type="full", n_iter=100)
 
-    # Treinamento do modelo
-    model.fit(data)
+    # Training the model
+    model.fit(energy_data)
 
-    # Predição dos estados
-    hidden_states = model.predict(data)
+    # Predicting states
+    hidden_states = model.predict(energy_data)
 
-    # Inicializa as colunas para as máscaras
-    for i in np.unique(hidden_states):
-        df_[f'mask{i}'] = np.nan  # Inicializa com zero
+    # Initialize columns for the masks
+    for state in np.unique(hidden_states):
+        df_[f'mask{state}'] = np.nan  # Initialize with NaN
 
-    # Aplica os valores de 'kw_total' baseados nos estados
-    for i in np.unique(hidden_states):
-        mask = hidden_states == i
-        df_.loc[mask, f'mask{i}'] = df_.loc[mask, 'kw_total']
+    # Applying 'kw_total' values based on states
+    for state in np.unique(hidden_states):
+        mask = hidden_states == state
+        df_.loc[mask, f'mask{state}'] = df_.loc[mask, 'kw_total']
 
-    # Plotando os dados
-    plot_energy_data(df_, ['mask0', 'mask1'], title='Consumo de Energia e Estados de Potência', plot_type = 'scatter')
+    # Plotting the data
+    plot_energy_data(df_, ['mask0', 'mask1'], title='Markov', plot_type='scatter')
 
     return hidden_states
-def return_dfs_markov(path_):
-    data = pd.read_csv(path_)
+def return_markov_dfs(file_path):
+    # Load data from CSV
+    data = pd.read_csv(file_path)
+    # Convert 'timestamp' column to datetime
     data['timestamp'] = pd.to_datetime(data['timestamp'])
+    # Extract date, hour, weekday, and season from the timestamp
     data['date'] = data['timestamp'].dt.date
     data['hour'] = data['timestamp'].dt.hour
     data['weekday'] = data['timestamp'].dt.weekday
     data['season'] = data['timestamp'].dt.month % 12 // 3 + 1
 
-    hh = faz_markov(data, n_components=2)
+    # Run the Markov model function
+    hidden_states = run_markov(data, n_components=2)
 
-    mask_sem_ocupacao = hh == 0
-    mask_com_ocupacao = hh == 1
+    # Masks for occupied and non-occupied states
+    mask_occupied = hidden_states == 1
 
-    df_dia_trabalho = data[data.index.isin(data.index[mask_com_ocupacao])]
-    df_fim_de_semana = data[~data.index.isin(data.index[mask_com_ocupacao])]
+    # DataFrames for weekdays (assuming 'occupied' implies weekdays)
+    df_weekdays = data[data.index.isin(data.index[mask_occupied])]
+    df_weekends = data[~data.index.isin(data.index[mask_occupied])]
 
-    print(f'df_dia_trabalho shape: {df_dia_trabalho.shape}')
-    print(f'df_fim_de_semana shape: {df_fim_de_semana.shape}')
-    print(f'data shape: {data.shape}')
-
+    # Columns to plot
     columns_to_plot = ['kw_total']
-    plot_energy_data(df_dia_trabalho, columns_to_plot, title='Consumo de Energia em Dias de Trabalho')
-    plot_energy_data(df_fim_de_semana, columns_to_plot, title='Consumo de Energia em Finais de Semana')
+    # Plotting the data
+    plot_energy_data(df_weekdays, columns_to_plot, title='df_weekdays')
+    plot_energy_data(df_weekends, columns_to_plot, title='df_weekends')
 
-    return df_dia_trabalho, df_fim_de_semana
-def calculate_multiplier_1(path_09, quantile_upper=0.95, quantile_lower=0.05, corr_threshold=0.7):
-    df1,df2 = return_dfs_markov(path_09)
-    df_fim_de_semana_09 = df1 if df1['kw_total'].mean() > df2['kw_total'].mean() else df2
-    list_ = []
-    for h in range(24):
-        for s in range(1, 5):
-            for y in df_fim_de_semana_09['year'].unique():
-                df_fim_de_semana_09_ = df_fim_de_semana_09[(df_fim_de_semana_09['hour'] == h) & (df_fim_de_semana_09['season'] == s) & (df_fim_de_semana_09['year']==y) ].copy()
-                # correlação com temperatura ou humidade
-                corr = df_fim_de_semana_09_['kw_total'].corr(df_fim_de_semana_09_['air_temperature_at_2m(deg_C)'])
-                if len(df_fim_de_semana_09_) < 20 or abs(corr) < corr_threshold:
+    return df_weekdays, df_weekends
+def calculate_multiplier(path_09, upper_quantile=0.95, lower_quantile=0.05, correlation_threshold=0.7, name='L09'):
+    weekend_df, weekday_df = return_markov_dfs(path_09)
+    weekend_df_09 = weekend_df if weekend_df['kw_total'].mean() > weekday_df['kw_total'].mean() else weekday_df
+    multipliers = []
+    for hour in range(24):
+        for season in range(1, 5):
+            for year in weekend_df_09['year'].unique():
+                filtered_data = weekend_df_09[(weekend_df_09['hour'] == hour) & (weekend_df_09['season'] == season) & (weekend_df_09['year'] == year)].copy()
+                # Correlation with temperature
+                correlation = filtered_data['kw_total'].corr(filtered_data['air_temperature_at_2m(deg_C)'])
+                if len(filtered_data) < 20 or abs(correlation) < correlation_threshold:
                     continue
 
-                quantil09 = df_fim_de_semana_09_['kw_total'].quantile(quantile_upper)
-                df_fim_de_semana_09_['quantil09'] = quantil09
-                print(f'Quantil 90% do consumo de energia em df_fim_de_semana_09: {quantil09}')
-                quantil01 = df_fim_de_semana_09_['kw_total'].quantile(quantile_lower)
-                df_fim_de_semana_09_['quantil01'] = quantil01
-                print(f'Quantil 10% do consumo de energia em df_fim_de_semana_09: {quantil01}')
-                print('amplitude quantil09', (quantil09 - quantil01)/quantil09)
-                list_.append(1-((quantil09 - quantil01)/quantil09))
-                # Calculando a média e o desvio padrão de 'kw_total'
-                mean_kw_total = df_fim_de_semana_09_['kw_total'].mean()
-                std_kw_total = df_fim_de_semana_09_['kw_total'].std()
+                upper_quantile_value = filtered_data['kw_total'].quantile(upper_quantile)
+                filtered_data['upper_quantile'] = upper_quantile_value
+                
+                lower_quantile_value = filtered_data['kw_total'].quantile(lower_quantile)
+                filtered_data['lower_quantile'] = lower_quantile_value
+                
+                multiplier = 1 - ((upper_quantile_value - lower_quantile_value) / upper_quantile_value)
+                multipliers.append(multiplier)
+                
+                # Calculating mean and standard deviation of 'kw_total'
+                mean_kw_total = filtered_data['kw_total'].mean()
+                std_kw_total = filtered_data['kw_total'].std()
 
-                # Normalizando 'air_temperature_at_2m(deg_C)' para ter a mesma média e desvio padrão de 'kw_total'
-                df_fim_de_semana_09_['air_temperature_at_2m(deg_C)_norm'] = (
-                    (df_fim_de_semana_09_['air_temperature_at_2m(deg_C)'] - df_fim_de_semana_09_['air_temperature_at_2m(deg_C)'].mean()) / df_fim_de_semana_09_['air_temperature_at_2m(deg_C)'].std()
+                # Normalizing 'air_temperature_at_2m(deg_C)' to have the same mean and standard deviation as 'kw_total'
+                filtered_data['air_temperature_normalized'] = (
+                    (filtered_data['air_temperature_at_2m(deg_C)'] - filtered_data['air_temperature_at_2m(deg_C)'].mean()) / filtered_data['air_temperature_at_2m(deg_C)'].std()
                 ) * std_kw_total + mean_kw_total
-                plot_energy_data(df_fim_de_semana_09_, ['kw_total', 'quantil09', 'quantil01', 'air_temperature_at_2m(deg_C)_norm'], title=f'h:{h} s:{s} corr:{corr} amp:{(quantil09 - quantil01)/quantil09}')
+                
+                plot_energy_data(filtered_data, ['kw_total', 'upper_quantile', 'lower_quantile', 'air_temperature_normalized'], title=f'h:{hour} s:{season} corr:{correlation} amp:{(upper_quantile_value - lower_quantile_value)/upper_quantile_value}')
 
-    print('Plug Global Power', np.mean(list_), np.std(list_), np.min(list_), np.max(list_))
+    print(f'Plug Global Power {name}', np.mean(multipliers), np.std(multipliers), np.min(multipliers), np.max(multipliers))
     show_plots(ncols=4)
-    return np.mean(list_), np.std(list_)
+    return np.mean(multipliers), np.std(multipliers)
 
-# model 1 - Busca pelos valores de multiplicador usando o quantil 90% e 10% do consumo de energia altamente correlacionado com a temperatura do ar
 path_09 = 'D:/repositorios/REP_ADRENALIN/Submission 1/data/L09.B01_1H_cleaned.csv'
-calculate_multiplier_1(path_09, quantile_upper=0.9, quantile_lower=0.1, corr_threshold=0.7)
+calculate_multiplier(path_09, upper_quantile=0.9, lower_quantile=0.1, correlation_threshold=0.7, name='L09')
 path_10 = 'D:/repositorios/REP_ADRENALIN/Submission 1/data/L10.B01_1H_cleaned.csv'
-calculate_multiplier_1(path_10, quantile_upper=0.99, quantile_lower=0.01, corr_threshold=0.85)
+calculate_multiplier(path_10, upper_quantile=0.99, lower_quantile=0.01, correlation_threshold=0.85, name='L10')
 
-# model 2 procura por picos e valos para tentar encontrar o valor dos plugs e iluminação
-def find_plugs_in_valeis_l9():
+# model 2 searches for peaks and troughs to try to determine the values of plugs and lighting
+def find_plugs_in_valleys_l9():
     path_09 = 'D:/repositorios/REP_ADRENALIN/Submission 1/data/L09.B01_5min_cleaned.csv'
     data = pd.read_csv(path_09)
     data['timestamp'] = pd.to_datetime(data['timestamp'])
-    # Filtrar dados entre '01-03-2021' e '01-09-2021'
+    # Filter data between '01-03-2021' and '01-09-2021'
     start_date = '2021-03-01'
     end_date = '2021-09-01'
     data = data.loc[(data['timestamp'] > start_date) & (data['timestamp'] < end_date)].reset_index(drop=True)
 
-    hh = faz_markov(data, n_components=2)
+    hidden_states = run_markov(data, n_components=2)
 
-    mask_sem_ocupacao = hh == 0
-    mask_com_ocupacao = hh == 1
+    mask_non_occupied = hidden_states == 0
+    mask_occupied = hidden_states == 1
 
-    data['dia_trabalho_cluster'] = 0
-    data.loc[mask_com_ocupacao, 'dia_trabalho_cluster'] = 1
+    data['weekday_cluster'] = 0
+    data.loc[mask_occupied, 'weekday_cluster'] = 1
 
-    # Passo 3: Filtrar o DataFrame original usando essas datas
-    df_dia_trabalho = data[data.index.isin(data.index[mask_com_ocupacao])]
-    df_fim_de_semana = data[~data.index.isin(data.index[mask_com_ocupacao])]
+    # Step 3: Filter the original DataFrame using these dates
+    weekday_df = data[data.index.isin(data.index[mask_occupied])]
+    weekend_df = data[~data.index.isin(data.index[mask_occupied])]
 
-    print(f'df_dia_trabalho shape: {df_dia_trabalho.shape}')
-    print(f'df_fim_de_semana shape: {df_fim_de_semana.shape}')
-    print(f'data shape: {data.shape}')
-
-    data = df_fim_de_semana.copy()
+    data = weekend_df.copy()
     data = data.reset_index(drop=True)
-    # Suponha que x é sua série temporal
     x = data['kw_total']
-    x = -x  # Invertendo o sinal
-
-    # Encontrando os picos com proeminência relativa
+    x = -x  # Inverting the signal
     peaks, properties = find_peaks(x, height=(-80, -10), prominence=(60, 150), width=(0, 4))
-
-    # Adicionar informações sobre os picos ao DataFrame
     data['is_peak'] = 0
     data.loc[peaks, 'is_peak'] = 1
 
-    # Criando a figura
-    p = figure(title="Detecção de Fundos com Proeminência e Largura Específica", x_axis_label='Index', y_axis_label='kw_total', width=800, height=400)
+    # Creating the figure
+    p = figure(title="Detection of Valleys with Specific Prominence and Width", x_axis_label='Index', y_axis_label='kw_total', width=800, height=400)
 
-    # Adicionando a linha do sinal
+    # Adding the signal line
     p.line(x.index, x, legend_label="kw_total", line_width=2)
 
     p.circle(peaks, x[peaks], size=10, color="blue", legend_label="peaks", fill_alpha=0.6)
 
-    # Adicionando uma linha cinza horizontal em y=0
+    # Adding a gray horizontal line at y=0
     p.line(x.index, np.zeros_like(x), line_dash="dashed", color="gray")
 
-    # Ajustando a legenda
+    # Adjusting the legend
     p.legend.location = "top_left"
 
-    # Mostrando o gráfico
+    # Showing the graph
     show(p)
 
-    # Analisar características dos picos
+    # Analyze features of the peaks
     data.loc[peaks, 'peak_height'] = data['kw_total'][peaks]
     data.loc[peaks, 'peak_prominence'] = properties['prominences']
     data.loc[peaks, 'peak_width'] = properties['widths']
-    data.loc[peaks, 'peack_base'] = properties['peak_heights'] - properties['prominences']
-    properties['plugs']= properties['prominences']/((properties['peak_heights'] - properties['prominences'])*-1) 
+    data.loc[peaks, 'peak_base'] = properties['peak_heights'] - properties['prominences']
+    properties['plugs'] = properties['prominences'] / ((properties['peak_heights'] - properties['prominences']) * -1)
     data.loc[peaks, 'plugs'] = properties['plugs']
-    #print media plugs
-    print(f'media dos plugs: {np.mean(properties["plugs"])}') 
-    print(f'mediana dos plugs: {np.median(properties["plugs"])}') 
+    # Print average and median of plugs
+    # print(f'average of plugs l09: {np.mean(properties["plugs"])}') 
+    print(f'median of plugs l09: {np.median(properties["plugs"])}')
 def find_plugs_in_peaks_l10():
     path10 = 'D:/repositorios/REP_ADRENALIN/Submission 1/data/L10.B01_15min_cleaned.csv'
     data = pd.read_csv(path10)
-    # Filtrar dados entre '01-03-2021' e '01-09-2021'
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    # Filter data between '01-03-2021' and '01-09-2021'
     start_date = '2019-03-01'
     end_date = '2023-09-01'
     data = data.loc[(data['timestamp'] > start_date) & (data['timestamp'] < end_date)].reset_index(drop=True)
-    # Suponha que x é sua série temporal
+    # Suppose x is your time series
     x = data['kw_total']
-    x = x  # Invertendo o sinal
 
-    # Encontrando os picos com proeminência relativa
+    # Finding peaks with relative prominence
     peaks, properties = find_peaks(x, height=(50, 200), prominence=(55, 100), width=(0, 7))
 
-    # Adicionar informações sobre os picos ao DataFrame
+    # Add information about peaks to DataFrame
     data['is_peak'] = 0
     data.loc[peaks, 'is_peak'] = 1
 
-    # Analisar características dos picos
+    # Analyze features of the peaks
     data.loc[peaks, 'peak_height'] = data['kw_total'][peaks]
     data.loc[peaks, 'peak_prominence'] = properties['prominences']
     data.loc[peaks, 'peak_width'] = properties['widths']
-    data.loc[peaks, 'peack_base'] = properties['peak_heights'] - properties['prominences']
-    properties['plugs']= properties['prominences']/(properties['peak_heights'] - properties['prominences']) 
+    data.loc[peaks, 'peak_base'] = properties['peak_heights'] - properties['prominences']
+    properties['plugs'] = properties['prominences'] / (properties['peak_heights'] - properties['prominences'])
     data.loc[peaks, 'plugs'] = properties['plugs']
-    #print media plugs
-    print(f'media dos plugs: {np.mean(properties["plugs"])}') 
-    print(f'mediana dos plugs: {np.median(properties["plugs"])}') 
+    # Print average and median of plugs
+    # print(f'average of plugs l10: {np.mean(properties["plugs"])}') 
+    print(f'median of plugs l10: {np.median(properties["plugs"])}') 
 
-    # Criando a figura
-    p = figure(title="Detecção de Fundos com Proeminência e Largura Específica", x_axis_label='Index', y_axis_label='kw_total', width=800, height=400)
+    # Creating the figure
+    p = figure(title="Detection of Peaks with Specific Prominence and Width", x_axis_label='Index', y_axis_label='kw_total', width=800, height=400)
 
-    # Adicionando a linha do sinal
+    # Adding the signal line
     p.line(x.index, x, legend_label="kw_total", line_width=2)
 
-    # Adicionando os fundos detectados
+    # Adding the detected peaks
     p.circle(peaks, x[peaks], size=10, color="blue", legend_label="peaks", fill_alpha=0.6)
 
-    # Adicionando uma linha cinza horizontal em y=0
+    # Adding a gray horizontal line at y=0
     p.line(x.index, np.zeros_like(x), line_dash="dashed", color="gray")
 
-    # Ajustando a legenda
+    # Adjusting the legend
     p.legend.location = "top_left"
 
-    # Mostrando o gráfico
+    # Showing the graph
     show(p)
 
-find_plugs_in_valeis_l9()
+find_plugs_in_valleys_l9()
 find_plugs_in_peaks_l10()
