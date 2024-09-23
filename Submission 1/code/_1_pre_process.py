@@ -9,7 +9,7 @@ from bokeh.layouts import gridplot, column
 from bokeh.plotting import figure, show
 from bokeh.models import DatetimeTickFormatter, Div
 from bokeh.palettes import Category10
-from _0_parameters import parameters_dict
+from _0_parameters_test import parameters_dict
 from metpy.units import units
 from metpy.calc import apparent_temperature, heat_index, windchill, dewpoint_from_relative_humidity
 import holidays
@@ -78,10 +78,10 @@ def plot_energy_data(data, columns, title="", width=450, height=350, show_plot=F
             # p.line(data['timestamp'], data[column], legend_label=column, color=colors[index], line_width=line_width, alpha=alpha)
             if plot_type == 'line':
                 # Plot line
-                p.line(data.index, data[column], legend_label=column, color=colors[index], line_width=line_width, alpha=alpha)
+                p.line(data['timestamp'], data[column], legend_label=column, color=colors[index], line_width=line_width, alpha=alpha)
             elif plot_type == 'scatter':
                 # Plot scatter
-                p.scatter(data.index, data[column], legend_label=column, color=colors[index], size=2, alpha=alpha)
+                p.scatter(data['timestamp'], data[column], legend_label=column, color=colors[index], size=2, alpha=alpha)
 
     # Customize legend and axis formatting
     p.legend.location = "top_left"
@@ -191,7 +191,7 @@ def aggregate_data(train_data_path,
     # save the file to a csv
     colunas = ['id_real', 'id', 'folder', 'building_id', 'id_real_total', 'timestamp', 'timestamp_number',
             'timestamp_real', 'timestamp_number_real', 'main_meter(kW)',	'PV_battery_system(kW)', 
-            'kw_total', 'kw_total_045', 'air_temperature_at_2m(deg_C)', 'relative_humidity_at_2m(%)', 
+            'kw_total', 'air_temperature_at_2m(deg_C)', 'relative_humidity_at_2m(%)', 
             'direct_solar_radiation(W/m^2)',  'diffuse_solar_radiation(W/m^2)', 'wind_speed_at_10m(km/h)', 'wind_direction_at_10m(deg)']
     data_merged = data_merged.rename(columns={'timestamp_x': 'timestamp'})
     # create a real id
@@ -205,6 +205,8 @@ def aggregate_data(train_data_path,
     data_merged.to_csv(f'{output_path}/data_merged.csv', index=False)
 
     print(f'File saved to: {output_path}/data_merged.csv ----------------------------------------------')
+    print('DATA MERGED -------------------------------------------------------------------')
+    print(data_merged['id_real'].value_counts())
     print_t(data_merged)
 
     return data_merged
