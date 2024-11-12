@@ -1,5 +1,4 @@
-# Load Disaggregation Challenge: Energy Use in Buildings - 2024 
-
+# Load Disaggregation Challenge: Energy Use in Buildings - 2024 - [Gold medal - 1st place - Top 1%] 🥇
 - **1- Preprocess Data**: [link](https://github.com/rafaelsudbrackzimmermann/1-PLACE-SOLUTION-Adrenalin-Load-Disaggregation-Challenge/blob/main/Submission%201/code/_1_pre_process.py)
 - **2- Model**: [link](https://github.com/rafaelsudbrackzimmermann/1-PLACE-SOLUTION-Adrenalin-Load-Disaggregation-Challenge/blob/main/Submission%201/code/_2_model.py)
 - **3- Main Training**: [link](https://github.com/rafaelsudbrackzimmermann/1-PLACE-SOLUTION-Adrenalin-Load-Disaggregation-Challenge/blob/main/Submission%201/code/_4_main_train.py)
@@ -8,19 +7,19 @@
 ![Project Banner](https://raw.githubusercontent.com/rafaelsudbrackzimmermann/1-PLACE-SOLUTION-Adrenalin-Load-Disaggregation-Challenge/main/Submission%201/Banner2.png)
 
 #### Project Overview
+**The Problem:**
+Energy management in buildings often lacks detailed insights due to the absence of extensive metering, making it challenging to identify how specific systems like heating and cooling contribute to overall energy consumption.
 
-**Background:**
-Buildings are a significant consumer of global energy. Reducing energy usage in buildings is crucial for achieving global emissions targets. The process of building energy load disaggregation helps identify the specific services like heating, cooling, and lighting that consume energy within a building. This identification is vital for targeted energy efficiency measures, enabling building owners and operators to reduce consumption and costs.
+**The Solution:**
+To address this, our team developed a solution using an unsupervised learning approach with the Adjusted STL (Seasonal-Trend Decomposition using LOESS) algorithm. This method improves upon traditional energy disaggregation techniques by adapting to complex and noisy data without needing predefined labels or extensive historical data inputs.
 
-**Challenge:**
-Accurate disaggregation of individual energy services' consumption from main meter data is a complex problem. Most buildings only have main meter data available, making it challenging to disaggregate specific energy uses like heating and cooling without costly and intrusive sub-metering systems.
+**Technology and Methodology:**
+- **Python and Key Libraries:** Our solution was implemented in Python, utilizing libraries such as `pandas` for data manipulation, `numpy` for numerical operations, and `statsmodels` for the robust implementation of the STL decomposition.
+- **STL Decomposition:** We chose STL for its flexibility in handling seasonal variations and its compatibility with unsupervised learning frameworks, allowing it to adapt dynamically to the data's inherent patterns.
+- **Adjusted STL Algorithm:** This enhanced version of the standard STL method integrates classical decomposition's stability with STL’s adaptability, ensuring accurate energy use breakdowns even when data exhibit volatile seasonal shifts.
 
-**Goal:**
-The Load Disaggregation Challenge focuses on developing scalable, unsupervised algorithms capable of accurately disaggregating building energy usage, specifically heating and/or cooling, from main meter data. The challenge tackles the issues of complexity in algorithm design, generalization across diverse building types, and the limited resolution of data logging by main meters.
-
-**Data Sets:**
-The datasets provided by competition sponsors include main meter and weather data from buildings with comprehensive sub-metering systems. These "ground truth" data are used to evaluate the accuracy of the disaggregation algorithms developed by participants.
-
+**Impact:**
+This unsupervised and adaptable approach allows building managers to effectively monitor and control energy usage for various systems without the need for complex and expensive sub-metering infrastructure. By leveraging basic meter data, our model provides a scalable and economically viable solution for energy management across diverse building environments.
 
 #### Results [link](https://codalab.lisn.upsaclay.fr/competitions/19659#results)
 **Training Results:**
